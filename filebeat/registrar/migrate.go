@@ -39,9 +39,10 @@ const (
 	legacyVersion registryVersion = "<legacy>"
 	version0      registryVersion = "0"
 	version1      registryVersion = "1"
+	version2      registryVersion = "2"
 )
 
-const currentVersion = version1
+const currentVersion = version2
 
 type Migrator struct {
 	dataPath    string
@@ -89,8 +90,19 @@ func (m *Migrator) Run() error {
 				return err
 			}
 			fallthrough
+
 		case version0:
-			return m.updateToVersion1(fbRegHome)
+			if err := m.updateToVersion1(fbRegHome); err != nil {
+				return err
+			}
+			fallthrough
+
+		case version1:
+			v2 := v2Migrator{
+				permissions: m.permissions,
+				regHome:     fbRegHome,
+			}
+			return v2.migrate()
 
 		case currentVersion:
 			return nil
@@ -122,7 +134,8 @@ func (m *Migrator) Run() error {
 // The data representation has changed multiple times before version 0 was introduced. The update function tries
 // to fix the state, allow us to migrarte from older Beats registry files.
 // NOTE: The oldest known filebeat registry file format this was tested with is from Filebeat 6.3.
-//       Support for older Filebeat versions is best effort.
+//
+//	Support for older Filebeat versions is best effort.
 func (m *Migrator) updateToVersion0(regHome, migrateFile string) error {
 	logp.Info("Migrate registry file to registry directory")
 
