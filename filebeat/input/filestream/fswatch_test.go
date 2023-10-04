@@ -19,6 +19,7 @@ package filestream
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -833,7 +834,8 @@ func BenchmarkGetFiles(b *testing.B) {
 	}
 
 	s := fileScanner{
-		paths: []string{filepath.Join(dir, "*.log")},
+		paths:  []string{filepath.Join(dir, "*.log")},
+		hasher: sha256.New(),
 		cfg: fileScannerConfig{
 			Fingerprint: fingerprintConfig{
 				Enabled: false,
@@ -859,7 +861,8 @@ func BenchmarkGetFilesWithFingerprint(b *testing.B) {
 	}
 
 	s := fileScanner{
-		paths: []string{filepath.Join(dir, "*.log")},
+		paths:  []string{filepath.Join(dir, "*.log")},
+		hasher: sha256.New(),
 		cfg: fileScannerConfig{
 			Fingerprint: fingerprintConfig{
 				Enabled: true,
@@ -948,7 +951,8 @@ func BenchmarkToFileDescriptor(b *testing.B) {
 	require.NoError(b, err)
 
 	s := fileScanner{
-		paths: []string{filename},
+		paths:  []string{filename},
+		hasher: sha256.New(),
 		cfg: fileScannerConfig{
 			Fingerprint: fingerprintConfig{
 				Enabled: true,

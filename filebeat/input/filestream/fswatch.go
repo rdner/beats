@@ -22,6 +22,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"hash"
 	"io"
 	"os"
 	"path/filepath"
@@ -282,16 +283,18 @@ func defaultFileScannerConfig() fileScannerConfig {
 // fileScanner looks for files which match the patterns in paths.
 // It is able to exclude files and symlinks.
 type fileScanner struct {
-	paths []string
-	cfg   fileScannerConfig
-	log   *logp.Logger
+	paths  []string
+	cfg    fileScannerConfig
+	log    *logp.Logger
+	hasher hash.Hash
 }
 
 func newFileScanner(paths []string, config fileScannerConfig) (loginp.FSScanner, error) {
 	s := fileScanner{
-		paths: paths,
-		cfg:   config,
-		log:   logp.NewLogger(scannerDebugKey),
+		paths:  paths,
+		cfg:    config,
+		log:    logp.NewLogger(scannerDebugKey),
+		hasher: sha256.New(),
 	}
 
 	if s.cfg.Fingerprint.Enabled {
@@ -483,8 +486,8 @@ func (s *fileScanner) toFileDescriptor(it *ingestTarget) (fd loginp.FileDescript
 
 		bfile := bufio.NewReaderSize(file, int(s.cfg.Fingerprint.Length))
 		r := io.LimitReader(bfile, s.cfg.Fingerprint.Length)
-		h := sha256.New()
-		written, err := io.Copy(h, r)
+		s.hasher.Reset()
+		written, err := io.Copy(s.hasher, r)
 		if err != nil {
 			return fd, fmt.Errorf("failed to compute hash for first %d bytes of %q: %w", s.cfg.Fingerprint.Length, fd.Filename, err)
 		}
@@ -492,7 +495,7 @@ func (s *fileScanner) toFileDescriptor(it *ingestTarget) (fd loginp.FileDescript
 			return fd, fmt.Errorf("failed to read %d bytes from %q to compute fingerprint, read only %d", written, fd.Filename, s.cfg.Fingerprint.Length)
 		}
 
-		fd.Fingerprint = hex.EncodeToString(h.Sum(nil))
+		fd.Fingerprint = hex.EncodeToString(s.hasher.Sum(nil))
 	}
 
 	return fd, nil
